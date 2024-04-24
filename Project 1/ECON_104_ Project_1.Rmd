@@ -1,0 +1,481 @@
+---
+title: "ECON 104 Project 1"
+author: "Marc Luzuriaga, Takuya Sugahara, Daniel Day, Shabib Alam"
+date: "2023-10-14"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+#Installing the POE5data set for the first time
+
+#install.packages("devtools")
+#devtools::install_github("ccolonescu/POE5Rdata")
+library (POE5Rdata)
+
+#install.packages("AER")
+library(AER)
+
+#Other Libraries
+#install.packages("xtable")
+library(xtable) # makes data frame for kable, which is a package to print tables
+
+#install.packages("jtools")
+library(jtools) #for short display of the regressions 
+# # This allows to use summ(Reg) instead of summary(reg)
+# set_summ_defaults(digits = 3) #decimal ditits of numerical outputs
+
+#install.packages("fitdistrplus")
+library(fitdistrplus)
+
+#install.packages("stats4")
+library(stats4)
+
+#install.packages("MASS")
+library(MASS)
+
+# for other necessary test or graphical tools
+#install.packages("survival")
+library(survival)
+
+#install.packages("actuar")
+library(actuar)
+
+#install.packages("distrMod")
+library(distrMod)
+
+#install.packages("effects") # Useful package to plot marginal effects
+library(effects)
+
+#install.packages("car")
+library(car)
+
+#install.packages("knitr")
+library(knitr)
+
+library(jtools)
+
+```
+
+```{r}
+#Loading in the MurderRates Data Set
+data("MurderRates")
+```
+
+# [**1 Introduction: Murder Rate Determinants**]{.underline}
+
+## 1.1 Data Set Summary
+
+In this paper, we will be analyzing the Murder Rate Data Set from the AER Package. The data set holds cross-sectional data on states in the year 1950, and the data set contains 44 observations on the following 8 variables:
+
+(1) rate: Murder rate per 100,000 (FBI estimate, 1950)
+
+(2) convictions: Number of convictions divided by number of murders in 1950.
+
+(3) executions: Average number of executions during 1946-1950 divided by convictions in 1950.
+
+(4) time: Median time served (in months) of convicted murderers released in 1951.
+
+(5) income: Median family income in 1949 (in 1,000 USD).
+
+(6) lfp: Labor force participation rate in 1950 (in percent).
+
+(7) noncauc: Proportion of population that is non-Caucasian in 1950.
+
+(8) Southern: Factor indicating region
+
+## 1.2 Question
+
+The question we seek to answer with the Murder Rates Data Set is as follows: "Does the Median family income in 1949 (in 1,000 USD) or the median time served (in months) of convicted murderers released in 1951 have an equal effect in reducing murder rates in states?" For the purposes of this project, our group will claim that the median family income in 1949 (in 1,000 USD) and an increased median time served in prison will have an equal effect on decreasing murder rates.
+
+## 1.3 Descriptive Analysis of Variables
+
+### 1.3.1 Graphs
+
+The graph below illustrates a histogram displaying the frequencies with respect to the Murder Rate per 100,000. The histogram portrays the fact that most states have a murder rate of 0-4 per 100,000, with a mode of approximately between three and four.
+
+Notice that the histogram is right-skewed with a long tail towards the right. This resembles a specification error of a log normal distribution. We will correct for this specification error by taking the log of the log normal distribution to give us the normal distribution in the following sections.
+
+```{r}
+#Histogram
+hist(MurderRates$rate, col='grey',main = "Histogram of Murder Rate"
+,xlab = "Murder rate per 100,000")
+```
+
+The other variables' histograms are presented below:
+
+```{r}
+#Histogram
+hist(MurderRates$convictions, 
+col='grey',main = "Number of convictions 
+divided by number of murders in 1950")
+```
+
+```{r}
+#Histogram
+hist(MurderRates$executions, col='grey',
+main = "Average number of executions 
+during 1946-1950 divided by convictions in 1950")
+```
+
+```{r}
+#Histogram
+hist(MurderRates$time, col='grey',main = "Histogram of Time",
+xlab = "Median time served (in months) of convicted murderers released in 1951")
+```
+
+```{r}
+#Histogram
+hist(MurderRates$income, col='grey',main = "Histogram of Income",
+xlab = "Median family income in 1949 (in 1,000 USD)")
+```
+
+```{r}
+#Histogram
+hist(MurderRates$lfp, col='grey',main = "Histogram of LFP",
+xlab = "Labor force participation rate in 1950 (in percent).")
+```
+
+```{r}
+#Histogram
+hist(MurderRates$noncauc, col='grey',main = "Histogram of Noncauc",
+xlab = "Proportion of population that is non-Caucasian in 1950")
+```
+
+Delving deeper into the statistics, the graphs below shows the empirical density and cumulative distribution for the dependent variable. In particular, the fitted distributions support the previous fact that the dependent variable's central tendency is approximately centered around four because the cumulative distribution's 50th percentile is roughly around four.
+
+Also, the fitted distributions also suggest that there is a specification error with the model because of the data being right-skewed.
+
+```{r}
+#Fitted Distributions
+plotdist(MurderRates$rate, histo = TRUE, demp = TRUE)
+```
+
+In order to create precise estimates about the statistics of the data set, we have included a five number summary below. The mean of the rate, convictions, executions, time, income, lfp, and noncauc variables are 5.404, 0.2605, 0.06034, 136.5, 1.7681, 53.07, and 0.10559, respectively. Also, the median of the rate, convictions, executions, time, income, lfp, and noncauc variables are 3.625, 0.2260, 0.045, 124, 1.83, 53.40, and 0.06450 respectively.
+
+```{r}
+rates_summary <- MurderRates[, c(1,2,3,4,5,6,7,8)]
+summary(rates_summary)
+```
+
+Next, we present a Box Plot for the dependent variable. An interesting insight that the box plot provides us is that the data set contains a single outlier of 19.25 murders per 100,000.
+
+```{r}
+#Box Plot For MurderRates
+boxplot(MurderRates$rate, main="MurderRates")
+```
+
+Finally, we present the correlation matrix. The correlation between the murder rate and executions is 0.1727, a positive relationship. The correlation between the murder rate and convictions is -0.25113. The correlation between the murder rate and noncauc is 0.7486359. The correlation between the murder rate and time is -0.51858. The correlation between the murder rate and income is -0.65428. The correlation between the murder rate and lfp is -0.1827364.
+
+```{r}
+#Correlation Matrix
+my_data <- MurderRates[, c(1,2,3,4,5,6,7)]
+cor(my_data)
+```
+
+### 1.3.2 Possible Violations of Regression Assumptions
+
+The most possible but apparent violation of the regression assumptions would be homoskedasticity. According to the linear regression assumption of homoskedasticity, linear regressions must have a constant variance in its error term. However, by analyzing the variables, we observe multiple clues towards heteroskedasticity.
+
+First, the histogram reveals that the data set has an incorrect transformation of the dependent variable. The histogram is right-skewed with a long tail towards the right. This resembles a specification error of a log normal distribution and may indicate the presence of heteroskedasticity. We will need to correct for this specification error by taking the log of the log normal distribution to give us the normal distribution.
+
+Second, the box plot reveals that there is an outlier in the dependent variable. Although the 3rd quartile of the rates variable is 7.725 per 100,000, the data set contains a data point of 19.25 murders per 100,000. An outlier may cause heteroskedasticity.
+
+Third, the mixing of observation of different scales in the income variable may cause heteroskedasticity. The income variable ranges from 0.760 to 2.390 (in 1,000 USD). The mixing of high-income households with low-income households may cause heteroskedasticity.
+
+------------------------------------------------------------------------
+
+# [2 The Model]{.underline}
+
+## 2.1 The Multiple Linear Regression Model
+
+### 2.1.1 Model and Inference
+
+We will estimate the relationship between the rate, execution, time, income, convictions with the following Multiple Regression Model:
+
+$\\ {MURDERRATES} = \beta _{1} + \beta _{2} INCOME+ \beta_{3}TIME + \beta _{4} EXECUTION + \beta _{5} CONVICTIONS + \beta _{6} LFP + \beta _{7}NONCAUC+\beta _{8}SOUTHERN+\epsilon_{i}$
+
+Our claim about the income variable having an equal effect in decreasing rates with the time variable can be precisely modeled by the following inference:
+
+$$ H_{0}: \beta_{2} = \beta_{3} \\H_{1}: \beta_{2} \ne \beta_{3}$$
+
+```{r}
+library(AER)  # Load the AER package
+data("MurderRates")
+```
+
+#### xIn this following model:
+
+"rate" is the response variable (Murder Rates), which is the variable I want to predict. "convictions," "executions," "times," "lfp," and "income" are the predictor variables I want to include in the model. These variables will be used to explain or predict the variation in house prices.
+
+```{r}
+str(MurderRates)
+Reg <- lm(rate~income+time+executions+convictions+lfp+
+noncauc+southern, data = MurderRates)
+summary(Reg)
+```
+
+### Commenting on the overall fit of the model:
+
+#### R-Squared :
+
+The model has an R-squared which is 0.6327. This is a reasonably good R-squared value. Adjusted R-squared is 0.5844 providing slightly more conservative of model fit.
+
+#### F-statistic:
+
+F-statistic is 13.09 and a very low p-value is 1.953e-07 which indicates that the model is statistically significant since p-value is lower than the F-statistic.
+
+#### Coefficient significance:
+
+Coefficients provide information about their statistical significance. From the model, income and time have highly significant coefficients with very low p-values. For that reason, if income or time changes, others predictor will have effect.
+
+Based on the summary regression above, the modeled relationship between the rate, execution, time, income, convictions becomes:
+
+$\\ {MURDERRATES} = 7.650 + (-7.038) INCOME+ (-0.026) TIME + 9.634 EXECUTION+ (-4.739) CONVICTIONS+ 0.274 LFP + (10.399)NONCAUC+(3.262)SOUTHERN+\epsilon_{i}$
+
+An unexpected finding from the data is that the coefficient for the execution variable is positive, indicating a positive relationship between Murder Rates and Executions. This is surprising because the purpose of death penalty executions are to prevent future crime. Yet, our data indicators otherwise.
+
+The following are the partial effects of the independent variables on the rates variable. This will help us assess the marginal change of each individual independent variable with its respect to the rates variable.
+
+```{r}
+#Partial effect of Income on Rates
+#install.packages("effects")
+library(effects)
+effincome <- effect("income", Reg)
+plot(effincome)
+```
+
+```{r}
+#Partial effect of Executions on Rates
+efftime <- effect("time", Reg)
+plot(efftime)
+```
+
+```{r}
+#Partial effect of Executions on Rates
+effexecutions <- effect("executions", Reg)
+plot(effexecutions)
+```
+
+```{r}
+#Partial effect of Executions on Rates
+effconvictions <- effect("convictions", Reg)
+plot(effconvictions)
+```
+
+```{r}
+#Partial effect of Executions on Rates
+effnoncauc <- effect("noncauc", Reg)
+plot(effnoncauc)
+```
+
+```{r}
+#Partial effect of Executions on Rates
+effsouthern <- effect("southern", Reg)
+plot(effsouthern)
+```
+
+### 2.1.2 Testing Multicollinearity
+
+The following is a summary for Multicollinearity using VIF:
+
+```{r}
+library(car)
+vif_values <- vif(Reg)  # Assuming 'Reg' is your original regression model
+summary(vif_values)
+```
+
+Based on the VIF analysis, I don't need to remove any variables from my model since VIF values are within range. \##### Here is why: Min: The minimum VIF is 1.096 which means low multicollinearity.
+
+1st Qu.: 1st 25 percentile of all VIF values is 1.109 which is close to 1. That's mean this is also under low multicollinearity.
+
+Median: 1.157 is the median of all variables which means median is also under multicollinearity.
+
+Mean: Mean with 1.345 indicates relatively low of multicollineairity.
+
+3rd Qu.: The VIF value at the 75th percentile of your predictor variables is approximately 1.660, which is still relatively close to 1. This indicates that the majority of your predictor variables have low multicollinearity.
+
+Max: The maximum value among all the predictors is 1.700 which is not present highly multicollinearity. This indicates that all predictor's VIF is under 1.7 which is low multicollinearity.
+
+Because of this result, we don't need to remove any variables.
+
+Min. 1st Qu. Median Mean 3rd Qu. Max. 1.096 1.109 1.157 1.345 1.660 1.700
+
+. . . . .
+
+## 2.2 The New Model
+
+### 2.2.1 Akaike Information Criterion
+
+To create a new model, we need to observe other regression models with packege.
+
+```{r}
+#Model1 <- lm(rate~income+time+executions+convictions+lfp
+#+noncauc+southern, data=MurderRates)
+
+#aic_value <- AIC(Model1)
+#aic_value
+
+AIC1 <- lm(rate~income, data=MurderRates)
+AIC2 <- lm(rate~income+time, data=MurderRates)
+AIC3 <- lm(rate~income+time+executions,data=MurderRates)
+AIC4 <- lm(rate~income+time+executions+convictions+lfp, data=MurderRates)
+AIC5 <- lm(rate~income+time+executions+convictions+lfp+noncauc,data=MurderRates)
+AIC6 <- lm(rate~income+time+executions+convictions+lfp+noncauc+southern,data=MurderRates)
+
+value1 <- AIC(AIC1)
+value2 <- AIC(AIC2)
+value3 <- AIC(AIC3)
+value4 <- AIC(AIC4)
+value5 <- AIC(AIC5)
+value6 <- AIC(AIC6)
+
+value1
+value2
+value3
+value4
+value5
+value6
+
+
+```
+
+As we observe, the AIC was obtained by adding the variables from income to southern. As a result, the AIC decreased with each addition of the variables. This is a good result for AIC, where lower values are good-fit. Therefore, we can conclude that the regression model we used is correct.
+
+### 2.2.2 Plotting Residuals Versus Fitted Values
+
+```{r}
+Model1 <- lm(rate~income+time+executions+convictions+lfp+noncauc+southern,data=MurderRates)
+
+residuals <-residuals (Model1)
+fitted_values <- fitted(Model1)
+
+plot(fitted_values, residuals, main="Residuals Vs Fitted", 
+xlab="Fitted_Values", ylab="Residuals" )
+
+```
+
+From this plot, as the value of x increases, there is a variation in the value of y. That means there is a Heteroskedasticity .
+
+### 2.2.3 RESET Test
+
+[**Marc: Step 7**]{.underline}
+
+We will proceed to run a RESET test to the second power on our regression model in order to test whether or not the mode has a wrong functional form. The original and modified model is denoted below:
+
+$\\ {MURDERRATES} = \beta _{1} + \beta _{2} INCOME+ \beta _{3} TIME + \beta _{4} EXECUTION+ \beta _{5} CONVICTIONS+ \beta _{6} LFP + \beta _{7}NONCAUC+\beta _{8}SOUTHERN+\beta _{9}\hat{y}^2+\epsilon_{i}$
+
+The RESET Hypothesis Test is as follows:
+
+$$
+H_{0}: \beta _{9} = 0 \\ H_{1}: \beta _{9} \ne 0
+$$
+
+Running the RESET test as indicated below at a 5% significance level, we obtain the following statistics:
+
+```{r}
+resettest(Reg, power=2, type="regressor", data=MurderRates)
+```
+
+Since the p-value of the model is 0.02156, it is below the 5% significance level that we assumed when running the RESET test. Therefore, we will need to reject the null hypothesis that the coefficient of the second power term is 0. This tells us that our model is in an incorrect functional form with the model being linear according to the RESET test. Thus, we would need to add higher order terms in our model. For instance, adding the higher order term for the income variable in the following regression would increase the p-value to 0.08579, which is above our significance level of 5%.
+
+```{r}
+New_Reg <- lm(rate~income+time+executions+convictions+
+lfp+noncauc+southern+poly(income,2), data = MurderRates)
+resettest(New_Reg, power=2, type="regressor", data=MurderRates)
+```
+
+------------------------------------------------------------------------
+
+# [3 Heteroskedasticity]{.underline}
+
+## 3.1 Testing For Heteroskedasticity
+
+We are using the Breusch-Pagan test to see if our model has heteroskedasticity. Based on the residual plot above, we suspect that there is some heteroskedasticity. When the test is performed, we get a p-value of 0.03152. If we compare this to a 5% significance level, we reject the null, and we can conclude that this model has heteroskedasticity.
+
+```{r, warning=FALSE, message=FALSE}
+#install.packages("lmtest")
+library(lmtest)
+
+Reg <- lm(rate~income+time+executions+convictions+
+lfp+noncauc+southern,data=MurderRates)
+
+# Breusch-Pagan test
+bp_test1 <- bptest(Reg)
+
+# results of Breusch-Pagan test
+print(bp_test1)
+
+```
+
+To correct the heteroskedasticity, we can use the feasible GLS method. We could have used the Weighted LS method, but we were unsure of the form of the skedastic function. Hence, the feasible GLS method is a more general way to correct the model. After performing the feasible GLS method, we can again perform a Breusch-Pagan test. This time, we get a p-value of 0.9534. Comparing this to a significance level of 5%, we can fail to reject the null and conclude that we do not have heteroskedasticity.
+
+```{r, warning=FALSE, message=FALSE}
+
+
+# Feasible GLS
+ehatsq <- resid(Reg)^2
+sighatsq.ols  <- lm(log(ehatsq)~income+time+executions+convictions
++lfp+noncauc+southern,data=MurderRates)
+vari <- exp(fitted(sighatsq.ols))
+Reg.fgls <- lm(rate ~ income+time+executions+
+convictions+lfp+noncauc+southern, weights=1/vari,data=MurderRates)
+summary(Reg.fgls)
+
+bptest(Reg.fgls)
+```
+
+. . . . .
+
+## 3.2 Correcting For Heteroskedasticity
+
+We can select a model using backward selection. This model (Reg4) led to a great adjusted R-squared of 0.9179. The p-value on the Breusch-Pagan test was 0.4627, which, when compared to a significance level of 5%, we can fail to reject the null and conclude that we do not have heteroskedasticity. Based on the previous discussion of the data and the fact that it is skewed right, we wanted to test the log-normal model. This model (Reg6) had an adjusted R-squared of 0.7725. The p-value was 0.4538, which, when compared to a significance level of 5%, we can fail to reject the null and conclude that we do not have heteroskedasticity. The AIC and BIC in the first regression were greater than the second regression, 161.8709 and 61.11577, respectively, for AIC, and 199.3389 and 93.23118, respectively, for BIC. This could mean that the first model was overfitting the data because it had more terms, but the AIC/BIC values penalize having those extra terms. Thus, the model in Reg6 is a better model.
+
+```{r, warning=FALSE, message=FALSE}
+
+Reg3 <- lm(rate~income+time+executions+convictions+lfp+noncauc+southern
++(income+time+executions+convictions
++lfp+noncauc+southern)^2, data=MurderRates)
+Reg4 <- stepAIC(Reg3, direction = "backward", trace = FALSE)
+
+summary(Reg4)
+
+bptest(Reg4)
+
+Reg5 <- lm(log(rate)~income+time+executions+convictions+lfp+noncauc+southern
+           +(income+time+executions+convictions+lfp+noncauc+southern)^2, data=MurderRates)
+Reg6 <- stepAIC(Reg5, direction = "backward", trace = FALSE)
+
+summary(Reg6)
+
+#BP Test
+bptest(Reg6)
+
+#AIC Reg4
+AIC(Reg4)
+#AIC Reg6
+AIC(Reg6)
+#BIC Reg4
+BIC(Reg4)
+#BIC Reg6
+BIC(Reg6)
+```
+
+------------------------------------------------------------------------
+
+# [4 Conclusion]{.underline}
+
+Finally, going back to our initial question, does the income variable have an equal effect with the time variable in decreasing murder rates? More precisely, we will conduct the hypothesis test below on the "Reg6" model we found after correcting for heteroskedasticity in Section 3.2. The hypothesis test is as follows:
+
+$$ H_{0}: \beta_{2} = \beta_{3} \\ H_{1}: \beta_{2} \ne \beta_{3}$$
+
+Since we are testing hypotheses for multiple variables, we will use the F-test as a test statistic to determine whether to accept or reject the null hypothesis. We proceed to perform the hypothesis test below:
+
+```{r}
+hypothesis <- "income = time" # Using an equivalent equation
+(test <- linearHypothesis (Reg6, hypothesis))
+kable(test, caption="The `linearHypothesis()` object")
+```
+
+Since the p-value of the two-tail linear hypothesis test at 5% significance level is 0.1949, the data indicates that we accept the null hypothesis. Thus, our initial hypothesis stated in the introduction is correct, and the income variable will have an equal effect with the time variable in decreasing murder rates.
