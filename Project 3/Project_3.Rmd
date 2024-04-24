@@ -1,0 +1,610 @@
+---
+title: "ECON_104_Project_3"
+author: "Marc Luzuriaga, Takuya Sugahara, Daniel Day, Shabib Alam"
+date: "2023-12-08"
+output:
+  pdf_document: default
+  html_document: default
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+#Installing the POE5data set for the first time
+
+#install.packages("devtools")
+#devtools::install_github("ccolonescu/POE5Rdata")
+library (POE5Rdata)
+
+#install.packages("AER")
+library(AER)
+
+#Other Libraries
+#install.packages("xtable")
+library(xtable) # makes data frame for kable, which is a package to print tables
+
+#install.packages("jtools")
+library(jtools) #for short display of the regressions 
+# # This allows to use summ(Reg) instead of summary(reg)
+# set_summ_defaults(digits = 3) #decimal ditits of numerical outputs
+
+#install.packages("fitdistrplus")
+library(fitdistrplus)
+
+#install.packages("stats4")
+library(stats4)
+
+#install.packages("MASS")
+library(MASS)
+
+# for other necessary test or graphical tools
+#install.packages("survival")
+library(survival)
+
+#install.packages("actuar")
+library(actuar)
+
+#install.packages("distrMod")
+library(distrMod)
+
+#install.packages("effects") # Useful package to plot marginal effects
+library(effects)
+
+#install.packages("car")
+library(car)
+
+#install.packages("knitr")
+library(knitr)
+
+library(jtools)
+#install.packages("dplyr")
+#install.packages('tseries')
+#install.packages('forecast')
+#install.packages('ggplot2')
+library(tseries)
+library(forecast)
+library(ggplot2)
+#install.packages("plm")
+library(plm)
+library(dplyr) 
+#install.packages("gplots")
+library(gplots)
+
+#install.packages("stargazer")
+library(stargazer)
+```
+
+```{r}
+data(Cigar)
+```
+
+# [**1 Panel Data: Cigar**]{.underline}
+
+## 1(a) Question
+
+For the purposes of this project, we will ask "Which of the following
+variables over time: (1) population above the age of 16, (2) consumer
+price index, (3) state, (4) per capita disposable income (5) sales, (6)
+per capita disposable income, or (7) minimum price in adjoining states
+per pack of cigarettes have the largest impact on the price of
+cigarettes over time?"
+
+In section 2, we will express our question more precisely using the
+following models: (1) Pooled Model, (2) Fixed Effects, (3) Random
+Effects, and we will determine which model is best fit to answer our
+question.
+
+## 1(b) Data Set Summary
+
+In this paper, we will be analyzing the Cigar Data Set from the PLM
+Package. The data set holds 46 time observations from 1963 to 1992 and
+1380 cross-sectional units about Cigarette Consumption data in the
+United States. The dataset contains panel data with the following nine
+variables:
+
+(1) state: state abbreviation. For the purposes of this project and
+    simplification, we will only analyze 5 states (state 5, state 33,
+    state 44, state 10, and state 39) in the panel data
+
+(2) year: the year.
+
+(3) price: price per pack of cigarettes.
+
+(4) pop: population
+
+(5) pop16: population above the age of 16.
+
+(6) cpi: consumer price index (1983=100).
+
+(7) ndi: per capita disposable income
+
+(8) sales: cigarette sales in packs per capita
+
+(9) pimin: minimum price in adjoining states per pack of cigaretttes
+
+Since we have 46 time observations (T) and 1380 cross-sectional units
+(N), this panel dataset can be characterized as [**short and
+wide**]{.underline}.
+
+## 1(c) Variable Description
+
+### 1(c).1 Graphs
+
+The graph below illustrates a histogram displaying the frequencies with
+respect to price. The graph portrays the fact that the majority of our
+observations for will fall between approximately between 0 to 50 gallons
+of consumption. The data also appears to right-skewed, indicating that
+we would need to perform a log transformation in order to normalize the
+data.
+
+```{r}
+filtered_data <- filter(Cigar, state == 5 | state == 33 | state == 44 | state == 10
+                        | state == 39)
+plotdist(filtered_data$price, histo = TRUE, demp = TRUE)
+```
+
+The graph below illustrates a histogram displaying the frequencies with
+respect to population. The data portrays that the relationship is bi
+modal (having two peaks).
+
+```{r}
+plotdist(filtered_data$pop, histo = TRUE, demp = TRUE)
+```
+
+The graph below illustrates a histogram displaying the frequencies with
+respect to population over 16 years old. The data portrays that the
+relationship is bi modal (having two peaks).
+
+```{r}
+plotdist(filtered_data$pop16, histo = TRUE, demp = TRUE)
+```
+
+The graph below illustrates a histogram displaying the frequencies with
+respect to cpi. The data portrays that the relationship is right skewed.
+A log transformation is needed to normalize the distribution.
+
+```{r}
+plotdist(filtered_data$cpi, histo = TRUE, demp = TRUE)
+```
+
+The graph below illustrates a histogram displaying the frequencies with
+respect to ndi. The data portrays that the relationship is right skewed.
+A log transformation is needed to normalize the distribution.
+
+```{r}
+plotdist(filtered_data$ndi, histo = TRUE, demp = TRUE)
+```
+
+The graph below illustrates a histogram displaying the frequencies with
+respect to sales. The data portrays that the relationship is left
+skewed.
+
+```{r}
+plotdist(filtered_data$sales, histo = TRUE, demp = TRUE)
+```
+
+The graph below illustrates a histogram displaying the frequencies with
+respect to pimin. The data portrays that the relationship is right
+skewed. A log transformation is needed to normalize the distribution.
+
+```{r}
+plotdist(filtered_data$pimin, histo = TRUE, demp = TRUE)
+```
+
+Finally, we present the correlation matrix. The correlation between
+population and price is 0.3106. The correlation between the population
+over 16 and price is 0.3742. The correlation between cpi and price is
+0.9477. The correlation between ndi and price is 0.9559. The correlation
+between the price and sales is -0.7448. The correlation between pimin
+and price is 0.99067.
+
+```{r}
+#Correlation Matrix
+my_data <- filtered_data[, c(3,4,5,6,7,8,9)]
+cor(my_data)
+```
+
+### 1(c).2 Data Visualization and Heterogeneity
+
+In this section, we will explore heterogeneity across time (year) and
+states (id) as well as provide visualization of the variables against
+log of price in our dataset. Below, we have a scatterplot regressing the
+log of price against the year subject to the state. The graph below
+presents the differences or heterogeneity of price over time among the
+time-invariant variable that is states. We proceed to run the following
+commands below:
+
+```{r}
+#Heterogeneity across Time
+scatterplot(log(price) ~ year|state, data = filtered_data)
+```
+
+As depicted by the graph, there are differences among the intercepts of
+the states across time, implying that there is heterogeneity between the
+states with respect to time.
+
+Next, we plot the means of log of price against the states. The graph
+below presents the differences or heterogeneity of average price against
+firms. We proceed to run the following commands below:
+
+```{r}
+#Heterogeneity across Firms
+plotmeans(log(price) ~ state, data = filtered_data)
+```
+
+As depicted by the plot above, there are differences and heterogeneity
+among the mean price across firms.
+
+Next, we graph a scatter plot of the log of price against the year.
+
+```{r}
+scatterplot(log(price) ~ year, data = filtered_data)
+```
+
+As depicted by the graph above, we see that the relationship between log
+of price and year has a positive linear relationship. We also see that
+the median log of price is approximately 4.0.
+
+Finally, the rest of this section plots the relationship between price
+and the rest of the variables, which include "pop", "cpi", "ndi",
+"sales", and "pimin":
+
+The following is a scatterplot of log(price) vs log(pop). The
+scatterplot indicates a positive but highly variable relationship
+between the two variables.
+
+```{r}
+scatterplot(log(price) ~ log(pop), data = filtered_data)
+```
+
+The following is a scatterplot of log(price) vs log(pop16). The
+scatterplot indicates a positive but highly variable relationship
+between the two variables.
+
+```{r}
+scatterplot(log(price) ~ log(pop16), data = filtered_data)
+```
+
+The following is a scatterplot of log(price) vs log(cpi). The
+scatterplot indicates a positive but tight relationship between the two
+variables.
+
+```{r}
+scatterplot(log(price) ~ log(cpi), data = filtered_data)
+```
+
+The following is a scatterplot of log(price) vs log(ndi). The
+scatterplot indicates a positive but tight relationship between the two
+variables.
+
+```{r}
+scatterplot(log(price) ~ log(ndi), data = filtered_data)
+```
+
+The following is a scatterplot of log(price) vs log(ndi). The
+scatterplot indicates a positive relationship between the two variables.
+
+```{r}
+scatterplot(log(price) ~ log(ndi), data = filtered_data)
+```
+
+The following is a scatterplot of log(price) vs log(sales). The
+scatterplot indicates a positive but highly variable relationship
+between the two variables.
+
+```{r}
+scatterplot(log(price) ~ log(sales), data = filtered_data)
+```
+
+The following is a scatterplot of log(price) vs log(pimin). The
+scatterplot indicates a positive but tight relationship between the two
+variables.
+
+```{r}
+scatterplot(log(price) ~ log(pimin), data = filtered_data)
+```
+
+# [**2 Panel Data Models: Cigar**]{.underline}
+
+## 2(a) Pooled Model
+
+In this section, we will be creating a pooled model to model the
+question that we provided in section 1(a). We proceed to plot the pooled
+regression with the following commands below:
+
+```{r, warning=FALSE}
+pooledreg1 <- plm(price~pop+pop16+cpi+ndi+sales+pimin,model="pooling",data=filtered_data)
+crse<- coeftest(pooledreg1, vcov=vcovHC(pooledreg1,
+type="HC0",cluster="group"))
+stargazer(pooledreg1, crse, column.labels = c("\\textit{Pooled}", "\\textit{Pooled(prse)}"),
+model.names = FALSE,type = "text")
+```
+
+From the pooled regression model, we could note that cpi, sales, pimin,
+and the constant are statistically significant. However, pop, pop16, and
+ndi are not statistically significant. We also note that the R-squared
+is reasonably high with the value of 0.984 being between 0.5 and 0.99.
+
+However, the estimated pooled model assumes that the intercept value
+between the states are the same. Recall our observation from 1(c).2 that
+the data exhibits heterogeneity across firms and across time. This
+indicates to us that we need to relax the first assumption that the
+slope coefficients are constant but the intercepts varies across the
+cross sectional units. Thus, in the subsequent models, we will relax
+this constraint by using the fixed effects and random effects model in
+order to better model our question that we presented in the beginning of
+the paper.
+
+## 2(b) Fixed Effects Model
+
+```{r}
+fixed_effects_model <- plm(price ~ pop + pop16 + cpi + ndi + sales + pimin,model = 
+                             "within", data = filtered_data)
+summary(fixed_effects_model)
+```
+
+The dataset has a balanced panel with 5 entities (cross-sectional
+units), 30 time periods, and a total of 150 observations.The residuals
+(differences between observed and predicted values) have a minimum of
+-21.19 and a maximum of 14.51. Interpretations for significant
+variables: sales: For a one-unit increase in sales, the price decreases
+by approximately 0.3124 units. pimin: For a one-unit increase in pimin,
+the price increases by approximately 0.9951 units. sales and pimin are
+highly statistically significant (p-values \< 0.01), indicating their
+strong impact on the dependent variable. The R-squared value is 0.9864,
+suggesting that the Fixed Effects model explains a substantial portion
+of the variation in the dependent variable. The F-statistic is 1677.9
+with a very low p-value, indicating that the overall model is
+statistically significant. \## 2(c) Random Effects Model
+
+```{r}
+cor(filtered_data[, c("price", "pop", "pop16", "cpi", "ndi", "sales", "pimin")])
+```
+
+Here we can see that there has high multicoleanirity between price\~cpi,
+price\~ndi, and price\~pimin. Need to remove those three variables that
+are causing the problem.
+
+```{r}
+random_effects_model <-plm(price ~ pop + pop16 + sales,model = "random", data = filtered_data)
+summary(random_effects_model)
+```
+
+The Random Effects model provides a reasonable fit to the data,
+considering the significant variables and the explained variation in
+'price.' The inclusion of individual effects helps capture
+entity-specific variability, addressing the heterogeneity observed in
+the dataset.
+
+## 2(d) Which Model Should We Use?
+
+1.  Pooled Model: R-Squared: 0.984 Adjusted R-Squared: 0.983
+    F-Statistic: 1,464.068\*\*\* (p-value \< 0.01) Significant
+    Coefficients: cpi, sales, pimin (at various significance levels)
+
+2.  Fixed Effects Model: R-Squared: 0.98638 Adjusted R-Squared: 0.9854
+    F-Statistic: 1,677.9\*\*\* (p-value \< 2.22e-16) Significant
+    Coefficients: pop, pop16, sales, pimin (at various significance
+    levels)
+
+3.  Random Effects Model: R-Squared: 0.71884 Adjusted R-Squared: 0.71306
+    Chisq: 373.281 (p-value \< 2.22e-16) Significant Coefficients:
+    Intercept, pop, pop16, sales (at various significance levels)
+
+Based on the results and considerations, the Fixed Effects Model seems
+to be the preferred choice in this scenario. It has a higher Adjusted
+R-squared, a significant F-statistic, and all coefficients are
+significant.
+
+# [**3 Conclusion: Cigar**]{.underline}
+
+The Fixed Effects Model seems to provide the best fit (highest Adjusted
+R-squared). The Pooled Model performs well but may overlook
+individual-specific effects. The Random Effects Model, while capturing
+individual-specific effects, has a lower overall fit compared to the
+Fixed Effects Model.
+
+Preferred Model: Fixed Effects Model High Adjusted R-squared. Captures
+individual-specific effects. Addresses potential heterogeneity across
+entities.
+
+------------------------------------------------------------------------
+
+# [**4 Binary Dependent Variables: Credit Card**]{.underline}
+
+## 4(a) Question
+
+```{r}
+data("CreditCard")
+```
+
+For the purposes of this project, we will ask "Which of the following
+variables : (1) report, (2)age, (3) income, (4)expenditure,
+(5)dependents, (6) months, (7) active, have the largest impact on the
+whether someone will obtain a new Credit Card?"
+
+In section 2, we will express our question more precisely using the
+following models: (1) Linear probability model, (2) Probit Model, (3)
+Logit model, and we will determine which model is best fit to answer our
+question.
+
+## 4(b) Data Set Summary
+
+In this paper, we will be analyzing the Credit Card Data Set from the
+PLM Package. Credit Card data in the United States. The dataset contains
+panel data with the following twelve variables:
+
+(1) card: Factor. Was the application for a credit card accepted?
+
+(2) reports: Number of major derogatory reports
+
+(3) age: Age in years plus twelfths of a year
+
+(4) income: Yearly income (in USD 10,000)
+
+(5) share: Ratio of monthly credit card expenditure to yearly income.
+
+(6) expenditure: Average monthly credit card expenditure
+
+(7) owner: Factor. Does the individual own their home?
+
+(8) selfemp: Factor. Is the individual self-employed?
+
+(9) dependents: Number of dependents
+
+(10) months: Months living at current address.
+
+(11) majorcards: Number of major credit cards held
+
+(12) active: Number of active credit accounts
+
+## 4(c) Variable Description
+
+### 4(c).1 Graphs
+
+The graph below illustrates a histogram displaying the frequencies with
+respect to price. The graph portrays the fact that the majority of our
+observations for will fall between approximately between 0 to 50 gallons
+of consumption. The data also appears to right-skewed, indicating that
+we would need to perform a log transformation in order to normalize the
+data.
+
+```{r}
+card <- table(CreditCard$card)
+barplot(card)
+CreditCard$card<-(CreditCard$card=="yes")*1
+```
+
+```{r}
+#Change the variable of "Age"
+plotdist(CreditCard$age, histo = TRUE, demp = TRUE)
+```
+
+The graph above illustrates a histogram displaying the frequencies with
+respect to age. The data portrays that the relationship is left skewed.
+
+```{r}
+plotdist(CreditCard$income, histo = TRUE, demp = TRUE)
+```
+
+The graph above illustrates a histogram displaying the frequencies with
+respect to income (USD 10,000). The data portrays that the relationship
+is right skewed
+
+```{r}
+plotdist(CreditCard$expenditure, histo = TRUE, demp = TRUE)
+```
+
+The graph above illustrates a histogram displaying the frequencies with
+respect to expenditure. The data portrays that the relationship is right
+skewed.
+
+```{r}
+plotdist(CreditCard$dependents, histo = TRUE, demp = TRUE)
+```
+
+The graph above illustrates a histogram displaying the frequencies with
+respect to dependents. The data portrays that the relationship is right
+skewed.
+
+```{r}
+plotdist(CreditCard$months, histo = TRUE, demp = TRUE)
+```
+
+The graph above illustrates a histogram displaying the frequencies with
+respect to months. The data portrays that the relationship is right
+skewed. A log transformation is needed to normalize the distribution.
+
+```{r}
+plotdist(CreditCard$majorcards, histo = TRUE, demp = TRUE)
+```
+
+The graph above illustrates a histogram displaying the frequencies with
+respect to months. The data portrays that the relationship has two peak.
+
+```{r}
+plotdist(CreditCard$active, histo = TRUE, demp = TRUE)
+
+```
+
+The graph above illustrates a histogram displaying the frequencies with
+respect to months. The data portrays that the relationship is right
+skewed.
+
+Finally, we present the correlation matrix. The relationships between
+each variable in our dataset is presented in the matrix below:
+
+```{r}
+#Correlation Matrix
+data1 <- CreditCard[, c(3,4,5,6,9,10,12)]
+cor(data1)
+```
+
+# [**5 Binary Dependent Variables: Credit Card**]{.underline}
+
+## 5(a) Linear Probability Model
+
+The Linear Dependent Variable Model is presented below:
+
+```{r}
+
+linear_model <- lm(card ~ reports + age + income + expenditure + dependents + months
+                   + active, data = CreditCard)
+
+summary(linear_model)
+
+AIC(linear_model)
+BIC(linear_model)
+```
+
+## 5(b) Probit model
+
+The Probit Model is presented below:
+
+```{r, warning=FALSE}
+
+probit_model <- glm(card ~ reports + age + income + expenditure + dependents + 
+                      months + active, family = binomial(link = "probit"), 
+                    data = CreditCard)
+
+summary(probit_model)
+BIC(probit_model)
+```
+
+## 5(c) Logit Model
+
+The Logit Model is presented below:
+
+```{r, warning=FALSE}
+
+logit_model <- glm(card ~ reports + age + income + expenditure + dependents + months
+                   + active, family = binomial(link="logit"), data = CreditCard)
+
+summary(logit_model)
+
+BIC(logit_model)
+```
+
+## 5(d) Which Model Should We Use?
+
+The probit is the better model with the lowest AIC and BIC of 131.88 and
+173.3591 respectively, compared to the linear model (AIC = 934.0028, BIC
+= 980.6645) and the logit Model (AIC = 132.12, BIC = 173.5977).
+
+## [**6**]{.underline} Which Model Should We Use?
+
+All three models had reports, dependents, and actives as statically
+significant. Only the linear model had expenditure as significant.
+Reports had the largest effect that is statically significant. This
+makes sense since a history of delinquency would serious hinder someone
+getting a credit card. Our group thought it was interesting that income
+and expenditure did not have a significant role in determining whether
+someone got approved or not, since a person with a high income better
+able pay of their credit card statement and since a person who spends a
+lot who probably have a great risk of spending too much on their credit
+card. However, the other variables are better suited at predicting the
+truth.
+
+Thus, our recommended model would be
+$Pr[Card =1] =\Phi[-1.54 - 1.11*reports + 0.02*age -0.05*income + 13.24*expenditure - 0.35*dependents - 0.002*months+ 0.05*active]$
